@@ -15,11 +15,3 @@ def log_gpu_usage(interval=1, log_file="gpu_usage_log.txt"):
 
 log_gpu_usage()
 
-
-
-
-
-
-
-
-################################################
