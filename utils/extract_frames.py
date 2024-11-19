@@ -2,6 +2,7 @@ import cv2
 import os
 import shutil
 
+
 def process_and_extract_frames(input_video_path, frames_output_dir, new_width=512, new_height=512, max_frames=24):
     output_video_path = "intermediary_video.mp4"
     # Open the video capture
@@ -11,9 +12,8 @@ def process_and_extract_frames(input_video_path, frames_output_dir, new_width=51
     fps = cap.get(cv2.CAP_PROP_FPS)
 
     # Define the codec and create VideoWriter object for the output video
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for .mp4 files
-    out = cv2.VideoWriter(output_video_path, fourcc, fps,
-                          (new_width, new_height), isColor=True)
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Codec for .mp4 files
+    out = cv2.VideoWriter(output_video_path, fourcc, fps, (new_width, new_height), isColor=True)
 
     frame_count = 0
 
@@ -42,11 +42,12 @@ def process_and_extract_frames(input_video_path, frames_output_dir, new_width=51
     cap.release()
     out.release()
     cv2.destroyAllWindows()
-    
+
     # delete the video now
     os.remove(output_video_path)
-    
+
     print(f"Extracted frames saved in '{frames_output_dir}'.")
+
 
 # Example usage:
 # process_and_extract_frames(input_video_path='path/to/video.mp4',
@@ -54,14 +55,14 @@ def process_and_extract_frames(input_video_path, frames_output_dir, new_width=51
 #                            frames_output_dir='path/to/frames_output',
 #                            new_width=512, new_height=512, max_frames=24)
 
+
 def strawman_frame_extraction(video_path, output_folder):
     # Create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-    else: # Clear the folder if it exists
+    else:  # Clear the folder if it exists
         shutil.rmtree(output_folder)
         os.makedirs(output_folder)
-        
 
     # Load the video
     cap = cv2.VideoCapture(video_path)
@@ -92,7 +93,7 @@ def strawman_frame_extraction(video_path, output_folder):
         # print(f"Saved frame {frame_count + 1} at {output_path}")
 
         # Move to the next frame interval
-        frame_number += frame_interval*2
+        frame_number += frame_interval * 2
         frame_count += 1
 
     # Release the video capture object
