@@ -1,10 +1,11 @@
 import os
 import lpips
 
+
 def calculate_lpips_distance(dir0, dir1, use_gpu=False):
     """
     Calculate LPIPS distance between images in two directories and save results to a file.
-    
+
     Parameters:
     - dir0 (str): Path to the first directory of images.
     - dir1 (str): Path to the second directory of images.
@@ -13,10 +14,9 @@ def calculate_lpips_distance(dir0, dir1, use_gpu=False):
     - use_gpu (bool): Flag to use GPU if available.
     """
     # Initialize the LPIPS model
-    loss_fn = lpips.LPIPS(net='vgg', version='0.1')
+    loss_fn = lpips.LPIPS(net="vgg", version="0.1")
     if use_gpu:
         loss_fn.cuda()
-
 
     # List all files in dir0
     files = os.listdir(dir0)
@@ -41,5 +41,5 @@ def calculate_lpips_distance(dir0, dir1, use_gpu=False):
             total_sum = total_sum + dist01.item()
             total_count = total_count + 1
 
-    average = total_sum/total_count
-    print(f'Average LPIPs loss: {average}')
+    average = total_sum / total_count
+    print(f"Average LPIPs loss: {average}")

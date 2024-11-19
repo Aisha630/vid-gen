@@ -3,6 +3,7 @@ import cv2
 import matplotlib.pyplot as plt
 from PIL import Image
 
+
 def scale(img, xScale, yScale):
     res = cv2.resize(img, None, fx=xScale, fy=yScale, interpolation=cv2.INTER_AREA)
     return res
@@ -31,6 +32,7 @@ def averagePixels(path):
             count += 1
     return (r / count), (g / count), (b / count), count
 
+
 def convert_frame_to_grayscale(frame):
     grayframe = None
     gray = None
@@ -41,6 +43,7 @@ def convert_frame_to_grayscale(frame):
         grayframe = scale(gray, 1, 1)
         gray = cv2.GaussianBlur(gray, (9, 9), 0.0)
     return grayframe, gray
+
 
 def prepare_dirs(keyframePath, imageGridsPath, csvPath):
     if not os.path.exists(keyframePath):
@@ -53,8 +56,8 @@ def prepare_dirs(keyframePath, imageGridsPath, csvPath):
 
 def plot_metrics(indices, lstfrm, lstdiffMag):
     plt.plot(indices, y[indices], "x")
-    l = plt.plot(lstfrm, lstdiffMag, 'r-')
-    plt.xlabel('frames')
-    plt.ylabel('pixel difference')
+    l = plt.plot(lstfrm, lstdiffMag, "r-")
+    plt.xlabel("frames")
+    plt.ylabel("pixel difference")
     plt.title("Pixel value differences from frame to frame and the peak values")
     plt.show()
