@@ -26,7 +26,5 @@ __pycache__/
 ## ignore all pycache folders no matter where they are
 **/__pycache__/
 bucketed_keyframes/
-
-
-
-
+outputs/
+logs/

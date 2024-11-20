@@ -198,7 +198,8 @@ def keyframeDetectionByChunks(source, dest, x, k=None, Thres=None, output_dir=No
             all_selected_frames.append(frame_number)
 
             # Save keyframe to output_dir
-            output_path = os.path.join(keyframePath, f"bucket{bucket_idx}_frame{frame_number}_{timestamp:.2f}.jpg")
+            output_path = os.path.join(keyframePath, f"frame{frame_number:04d}.jpg")
+            # output_path = os.path.join(keyframePath, f"bucket{bucket_idx}_frame{frame_number}_{timestamp:.2f}.jpg")
             cv2.imwrite(output_path, bucket_images[idx])
             log_message = f"Bucket {bucket_idx}, keyframe at {timestamp:.2f} sec (frame {frame_number})."
             if verbose:
