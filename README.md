@@ -10,7 +10,11 @@ For this particular project, we are using the `diffusers-0-27-0` python environm
 
 ### Docker container
 
-For this project, we use the image `video-generation`, the container `video-generation-neat`, with the local directory `Video Generation` mounted as a volume
+For this project, we use the image `video-generation`, the container `video-generation-neat`, with the local directory `Video Generation` mounted as a volume.
+
+All files related to the project can be found at the path `/root/VideoReconstruction` in the container.
+
+All checkpoints and weights for the SVD finetuned models areee in the folder `/root/VideoReconstruction/svd`
 
 The command to run the contianer is
 
