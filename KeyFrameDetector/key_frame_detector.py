@@ -7,7 +7,7 @@ import time
 import peakutils
 from KeyFrameDetector.utils import convert_frame_to_grayscale, prepare_dirs, plot_metrics
 
-__all__ = ["keyframeDetection", "clear_directory" "keyframeDetectionByChunks"]
+__all__ = ["keyframeDetection", "clear_directory" "keyframeDetectionByChunks", "smartKeyframeDetection"]
 
 
 def keyframeDetection(source, dest, Thres, plotMetrics=False, verbose=True, fraction=1):
@@ -83,36 +83,170 @@ def keyframeDetection(source, dest, Thres, plotMetrics=False, verbose=True, frac
 
     cv2.destroyAllWindows()
 
-
-def keyframeDetectionByChunks(source, dest, x, k=None, Thres=None, output_dir=None, verbose=True):
+def find_next_best_frame(start_index, last_index, bucket_diffMag, minimum_frames_between, maximum_frames_between, threshold=None):
     """
-    Detects keyframes in a video by processing it in chunks.
+    Given start and end indices, finds additional frame indices to insert between them such that the gaps between frames are less than or equal to maximum_frames_between and at least minimum_frames_between apart.
 
-    Parameters:
-    source (str): Path to the input video file.
-    dest (str): Path to the destination directory where results will be saved.
-    x (int): Number of frames per chunk.
-    k (int, optional): Number of top keyframes to select per chunk. If None, all frames are considered.
-    Thres (float, optional): Threshold for peak detection. If None, no thresholding is applied.
-    output_dir (str, optional): Directory to save keyframes. If None, a default directory is used.
-    verbose (bool, optional): If True, prints log messages. Default is True.
+    Args:
+        start_index (int): Starting index in bucket.
+        last_index (int): Ending index in bucket.
+        bucket_diffMag (list): List of difference magnitudes for frames in the bucket.
+        minimum_frames_between (int): Minimum frames between selected frames.
+        maximum_frames_between (int): Maximum frames between selected frames.
+        threshold (float, optional): Threshold to filter frames based on difference magnitude.
 
     Returns:
-    list: List of selected keyframe indices.
-
-    Notes:
-    - The function processes the video in chunks of 'x' frames.
-    - It computes the difference magnitude between consecutive frames to detect keyframes.
-    - Keyframes are selected based on either the top 'k' difference magnitudes or a threshold 'Thres'.
-    - The first and last frames of each chunk are always included as keyframes.
-    - Keyframes are saved as images in the specified output directory.
+        list: List of frame indices to insert between start_index and last_index.
     """
+    indices_to_insert = []
+    intervals = [(start_index, last_index)]
+
+    while intervals:
+        s, e = intervals.pop()
+        if e - s <= maximum_frames_between:
+            continue  # Gap is acceptable, no need to insert frames
+
+        candidate_start = s + minimum_frames_between
+        candidate_end = e - minimum_frames_between
+
+        if candidate_start > candidate_end:
+            continue  # Cannot find a frame that satisfies minimum_frames_between constraint
+
+        # Get candidates and their diffMags
+        candidates = list(range(candidate_start, candidate_end + 1))
+        candidate_diffMags = [bucket_diffMag[i] for i in candidates]
+
+        if threshold is not None:
+            # Filter candidates based on threshold
+            candidates_filtered = []
+            candidate_diffMags_filtered = []
+            for idx, diffMag in zip(candidates, candidate_diffMags):
+                if diffMag >= threshold:
+                    candidates_filtered.append(idx)
+                    candidate_diffMags_filtered.append(diffMag)
+            candidates = candidates_filtered
+            candidate_diffMags = candidate_diffMags_filtered
+
+        if not candidates:
+            continue  # No candidates to insert
+
+        # Find the candidate with the highest diffMag
+        max_diffMag = max(candidate_diffMags)
+        max_index = candidates[candidate_diffMags.index(max_diffMag)]
+
+        indices_to_insert.append(max_index)
+
+        # Add new intervals to process
+        intervals.append((s, max_index))
+        intervals.append((max_index, e))
+
+    return indices_to_insert
+
+    
+def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, output_dir=None,  minimum_frames_between = 24, maximum_frames_between=30):
+    keyframePath = output_dir if output_dir else os.path.join(dest, "keyFrames")
+
+    selected_indices = keyframeDetectionByChunks(source, dest, bucket_size_in_frames, 0, output_dir, minimum_frames_between)
+    
+    cap = cv2.VideoCapture(source)
+    length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    if not cap.isOpened():
+        print("Error opening video file")
+        return
+
+    lstfrm = []
+    lstdiffMag = []
+    timeSpans = []
+    images = []
+    full_color = []
+    lastFrame = None
+
+    for i in range(length):
+        ret, frame = cap.read()
+        if not ret:
+            break  # Exit if the frame could not be read
+
+        grayframe, blur_gray = convert_frame_to_grayscale(frame)
+        frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1  # Current frame index
+        timestamp = frame_number / fps  # Calculate the timestamp in seconds based on frame index and FPS
+        lstfrm.append(frame_number)
+        images.append(grayframe)
+        full_color.append(frame)
+
+        if frame_number == 0:
+            lastFrame = blur_gray
+
+        diff = cv2.subtract(blur_gray, lastFrame)
+        diffMag = cv2.countNonZero(diff)
+        lstdiffMag.append(diffMag)
+        timeSpans.append(timestamp)  # Use calculated timestamp based on FPS
+        lastFrame = blur_gray
+
+    cap.release()
+
+    # if we put this here there is a chance that last frame gets eiliminated if the last frame is too close to second last
+    if 0 not in selected_indices:
+        selected_indices = [0] + selected_indices
+    if length - 1 not in selected_indices:
+        selected_indices.append(length - 1)
+        
+    filtered_indices = [selected_indices[0]]
+    for i in range(1, len(selected_indices)):
+        start_index = filtered_indices[-1]
+        last_index = selected_indices[i]
+        if last_index - start_index <= maximum_frames_between:
+            filtered_indices.append(last_index)
+            continue
+        indices_to_insert = find_next_best_frame(start_index, last_index, lstdiffMag, minimum_frames_between, maximum_frames_between, threshold)
+        filtered_indices.extend(indices_to_insert)
+        filtered_indices.append(last_index)
+    
+    filtered_indices = sorted(set(filtered_indices + [length -1 ]))
+    
+    print(f"For {source}, selected {len(selected_indices)} frames, and inserted {len(filtered_indices) - len(selected_indices)} frames.")
+    
+    #   Save keyframe to output_dir
+    keyframes = []
+    for idx in filtered_indices:
+        output_path = os.path.join(keyframePath, f"frame{lstfrm[idx]:04d}.jpg")
+        # output_path = os.path.join(keyframePath, f"bucket{bucket_idx}_frame{frame_number}_{timestamp:.2f}.jpg")
+        cv2.imwrite(output_path, full_color[idx])
+        keyframes.append(full_color[idx])
+        log_message = f"keyframe at {timestamp:.2f} sec (frame {lstfrm[idx]})."
+        with open(f"logs/keyframe_detection_{os.path.basename(source)}.log", "a") as log_file:
+            log_file.write(log_message + "\n")
+            
+        if verbose:
+            print(log_message)
+    
+    cv2.destroyAllWindows()
+    return keyframes
+    
+    
+def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=0, output_dir=None, minimum_frames_between = 24):
+    
+    """
+    Detects keyframes in a video by processing it in chunks.
+    Args:
+        source (str): Path to the input video file.
+        dest (str): Path to the destination directory where results will be saved.
+        number_frames_per_bucket (int): Number of frames to process in each chunk.
+        top_k (int, optional): Number of top keyframes to select based on difference magnitude. Defaults to None.
+        threshold (float, optional): Threshold for peak detection in difference magnitudes. Defaults to None.
+        output_dir (str, optional): Directory to save keyframes. Defaults to None.
+        verbose (bool, optional): If True, prints log messages. Defaults to True.
+        minimum_frames_between (int, optional): Minimum number of frames between selected keyframes. Defaults to 24.
+    Returns:
+        list: List of selected keyframe indices.
+    """
+
     # Prepare output directories
     clear_directory(dest)
     keyframePath = output_dir if output_dir else os.path.join(dest, "keyFrames")
     imageGridsPath = os.path.join(dest, "imageGrids")
     csvPath = os.path.join(dest, "csvFile")
-    path2file = os.path.join(csvPath, "output.csv")
     prepare_dirs(keyframePath, imageGridsPath, csvPath)
 
     # Open video file
@@ -158,8 +292,8 @@ def keyframeDetectionByChunks(source, dest, x, k=None, Thres=None, output_dir=No
     cap.release()
 
     # Divide into chunks
-    buckets = [lstfrm[i : i + x] for i in range(0, len(lstfrm), x)]
-    all_selected_frames = []
+    buckets = [lstfrm[i : i + number_frames_per_bucket] for i in range(0, len(lstfrm), number_frames_per_bucket)]
+    all_selected_indices = []
 
     # Process each bucket
     for bucket_idx, bucket in enumerate(buckets):
@@ -173,41 +307,36 @@ def keyframeDetectionByChunks(source, dest, x, k=None, Thres=None, output_dir=No
         bucket_images = full_color[start_idx : end_idx + 1]
 
         # Select top-k or threshold-based frames
-        if Thres:
-            y = np.array(bucket_diffMag)
-            base = peakutils.baseline(y, 2)
-            indices = peakutils.indexes(y - base, Thres, min_dist=1)
-        else:
-            indices = range(len(bucket_diffMag))
+        
+        y = np.array(bucket_diffMag)
+        base = peakutils.baseline(y, 2)
+        indices = peakutils.indexes(y - base, threshold, min_dist = minimum_frames_between)
+        selected_indices = sorted(indices, key=lambda idx: y[idx], reverse=True)
+    
+        # if len(indices) > top_k:
+        #     selected_indices = sorted(set(indices[:top_k]))
+        # else:
+        #     selected_indices = sorted(set(indices))
 
-        if k:
-            top_k_indices = sorted(indices, key=lambda i: bucket_diffMag[i], reverse=True)[:k]
-        else:
-            top_k_indices = indices
-
-        # Ensure first and last frames are always included
-        selected_indices = set(top_k_indices)
-        selected_indices.add(0)  # First frame of the bucket
-        selected_indices.add(len(bucket_diffMag) - 1)  # Last frame of the bucket
-        selected_indices = sorted(selected_indices)
-
-        # Save keyframes and log
+        # # Save keyframes and log
         for idx in selected_indices:
             frame_number = bucket_frames[idx]
             timestamp = bucket_timeSpans[idx]
-            all_selected_frames.append(frame_number)
-
-            # Save keyframe to output_dir
-            output_path = os.path.join(keyframePath, f"frame{frame_number:04d}.jpg")
-            # output_path = os.path.join(keyframePath, f"bucket{bucket_idx}_frame{frame_number}_{timestamp:.2f}.jpg")
-            cv2.imwrite(output_path, bucket_images[idx])
-            log_message = f"Bucket {bucket_idx}, keyframe at {timestamp:.2f} sec (frame {frame_number})."
-            if verbose:
-                print(log_message)
+        all_selected_indices = all_selected_indices + selected_indices
+        #     # Save keyframe to output_dir
+        #     output_path = os.path.join(keyframePath, f"frame{frame_number:04d}.jpg")
+        #     # output_path = os.path.join(keyframePath, f"bucket{bucket_idx}_frame{frame_number}_{timestamp:.2f}.jpg")
+        #     cv2.imwrite(output_path, bucket_images[idx])
+        #     log_message = f"Bucket {bucket_idx}, keyframe at {timestamp:.2f} sec (frame {frame_number})."
+        #     with open(f"logs/keyframe_detection_{os.path.basename(source)}.log", "w+") as log_file:
+        #         log_file.write(log_message + "\n")
+                
+        #     if verbose:
+        #         print(log_message)
 
     cv2.destroyAllWindows()
 
-    return all_selected_frames
+    return all_selected_indices
 
 
 def clear_directory(directory):
