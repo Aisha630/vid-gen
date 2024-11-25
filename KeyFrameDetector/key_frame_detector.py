@@ -218,8 +218,8 @@ def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, o
         with open(f"logs/keyframe_detection_{os.path.basename(source)}.log", "a") as log_file:
             log_file.write(log_message + "\n")
             
-        if verbose:
-            print(log_message)
+        # if verbose:
+        #     print(log_message)
     
     cv2.destroyAllWindows()
     return keyframes
@@ -294,11 +294,22 @@ def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=
     # Divide into chunks
     buckets = [lstfrm[i : i + number_frames_per_bucket] for i in range(0, len(lstfrm), number_frames_per_bucket)]
     all_selected_indices = []
+    
+    ## print each bucket
+    # for idx, bucket in enumerate(buckets):
+        # print(f"Bucket {idx} has frames {lenbucket}")
+    
 
     # Process each bucket
     for bucket_idx, bucket in enumerate(buckets):
-        start_idx = bucket[0]  # First frame of the bucket
+        # start_idx = bucket[0]  # First frame of the bucket
+        # print(f"Processing bucket {bucket_idx}")
+        last_of_prev_bucket = sorted(buckets[bucket_idx-1])[-1] if bucket_idx > 0 else 0
+        start_idx = last_of_prev_bucket if bucket_idx > 0 else bucket[0]
         end_idx = bucket[-1]  # Last frame of the bucket
+        
+        # print(f"First frame of the bucket is {start_idx} and last frame is {end_idx}")
+        # print(f"Bucket contents are {bucket}")
 
         # Compute differences for the bucket
         bucket_diffMag = lstdiffMag[start_idx : end_idx + 1]
@@ -310,8 +321,14 @@ def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=
         
         y = np.array(bucket_diffMag)
         base = peakutils.baseline(y, 2)
+        
+        # print(f"Minimumm frames between {minimum_frames_between}")
         indices = peakutils.indexes(y - base, threshold, min_dist = minimum_frames_between)
         selected_indices = sorted(indices, key=lambda idx: y[idx], reverse=True)
+        # selected_indices = [idx + number_frames_per_bucket for idx in selected_indices]
+
+        
+        # print(f"Selected frames by peak utils are {selected_indices}")
     
         # if len(indices) > top_k:
         #     selected_indices = sorted(set(indices[:top_k]))
@@ -322,8 +339,8 @@ def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=
         for idx in selected_indices:
             frame_number = bucket_frames[idx]
             timestamp = bucket_timeSpans[idx]
-        all_selected_indices = all_selected_indices + selected_indices
-        #     # Save keyframe to output_dir
+            all_selected_indices + [frame_number]
+        
         #     output_path = os.path.join(keyframePath, f"frame{frame_number:04d}.jpg")
         #     # output_path = os.path.join(keyframePath, f"bucket{bucket_idx}_frame{frame_number}_{timestamp:.2f}.jpg")
         #     cv2.imwrite(output_path, bucket_images[idx])
@@ -333,10 +350,11 @@ def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=
                 
         #     if verbose:
         #         print(log_message)
+        # print(f"All selected indices are {all_selected_indices}")
 
     cv2.destroyAllWindows()
 
-    return all_selected_indices
+    return sorted(list(set(all_selected_indices)))
 
 
 def clear_directory(directory):
