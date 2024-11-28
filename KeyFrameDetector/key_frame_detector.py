@@ -5,6 +5,7 @@ import csv
 import numpy as np
 import time
 import peakutils
+from diffusers.utils import export_to_video
 from KeyFrameDetector.utils import convert_frame_to_grayscale, prepare_dirs, plot_metrics
 
 __all__ = ["keyframeDetection", "clear_directory" "keyframeDetectionByChunks", "smartKeyframeDetection"]
@@ -143,7 +144,8 @@ def find_next_best_frame(start_index, last_index, bucket_diffMag, minimum_frames
     return indices_to_insert
 
     
-def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, output_dir=None,  minimum_frames_between = 24, maximum_frames_between=30):
+def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, output_dir=None,  minimum_frames_between = 24, maximum_frames_between=30, segment_fps=30, interim_videos_dir=None):
+    
     keyframePath = output_dir if output_dir else os.path.join(dest, "keyFrames")
 
     selected_indices = keyframeDetectionByChunks(source, dest, bucket_size_in_frames, 0, output_dir, minimum_frames_between)
@@ -205,6 +207,22 @@ def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, o
     
     filtered_indices = sorted(set(filtered_indices + [length -1 ]))
     
+    for idx in filtered_indices:
+        # see if the net motion between filtered_indices[idx] and filtered_indices[idx+1] is more than a threshold
+        if idx == filtered_indices[-1]:
+            break
+        no_interpolation_threshold = 0.3
+        percentage_of_motion_in_bucket = sum(lstdiffMag[filtered_indices[idx]:filtered_indices[idx+1]]) / sum(lstdiffMag)
+        if percentage_of_motion_in_bucket > no_interpolation_threshold:
+            # Save the entire bucket as a segment_<bucket_idx> mp4
+            print(f"Frames {filtered_indices[idx]} to {filtered_indices[idx+1]} have high motion, saving the entire bucket.")
+            all_bucket_frames = [full_color[idx] for idx in range(filtered_indices[idx], filtered_indices[idx+1])]
+            # interim_videos_dir ~ os.path.join(OUT_DIR, f"interm_videos_{video_name}")
+            interim_videos_dir = os.path.join(interim_videos_dir, f"segment_{idx}.mp4")
+            export_to_video(all_bucket_frames, interim_videos_dir, fps=segment_fps)
+            continue
+
+
     print(f"For {source}, selected {len(selected_indices)} frames, and inserted {len(filtered_indices) - len(selected_indices)} frames.")
     
     #   Save keyframe to output_dir
