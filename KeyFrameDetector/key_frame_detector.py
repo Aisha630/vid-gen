@@ -145,7 +145,6 @@ def find_next_best_frame(start_index, last_index, bucket_diffMag, minimum_frames
 
     
 def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, output_dir=None,  minimum_frames_between = 24, maximum_frames_between=30, segment_fps=30, interim_videos_dir=None):
-    
     keyframePath = output_dir if output_dir else os.path.join(dest, "keyFrames")
 
     selected_indices = keyframeDetectionByChunks(source, dest, bucket_size_in_frames, 0, output_dir, minimum_frames_between)
@@ -228,7 +227,8 @@ def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, o
     #   Save keyframe to output_dir
     keyframes = []
     for idx in filtered_indices:
-        output_path = os.path.join(keyframePath, f"frame{lstfrm[idx]:04d}.jpg")
+        # output_path = os.path.join(keyframePath, f"frame{lstfrm[idx]:04d}.jpg")
+        output_path = os.path.join(keyframePath, f"frame{lstfrm[idx]}_{timeSpans[idx]:.4f}.jpg")
         # output_path = os.path.join(keyframePath, f"bucket{bucket_idx}_frame{frame_number}_{timestamp:.2f}.jpg")
         cv2.imwrite(output_path, full_color[idx])
         keyframes.append(full_color[idx])
@@ -336,7 +336,7 @@ def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=
         bucket_images = full_color[start_idx : end_idx + 1]
 
         # Select top-k or threshold-based frames
-        
+        print(f"Net difference in bucket {bucket_idx} is ", sum(bucket_diffMag))
         y = np.array(bucket_diffMag)
         base = peakutils.baseline(y, 2)
         
