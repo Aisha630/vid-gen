@@ -28,3 +28,5 @@ __pycache__/
 bucketed_keyframes/
 outputs/
 logs/
+input_videos/*
+input*/

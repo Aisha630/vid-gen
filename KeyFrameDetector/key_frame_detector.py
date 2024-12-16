@@ -146,10 +146,27 @@ def find_next_best_frame(start_index, last_index, bucket_diffMag, minimum_frames
     return indices_to_insert
 
     
-def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, output_dir=None,minimum_frames_between = 24, maximum_frames_between=30, segment_fps=30, interim_videos_dir=None, top_k_no_interpolation=0):
-    keyframePath = output_dir if output_dir else os.path.join(dest, "keyFrames")
+def smartKeyframeDetection(source, bucket_size_in_frames, threshold=0.3, output_dir=None,minimum_frames_between = 24, maximum_frames_between=30, segment_fps=30, interim_videos_dir=None, top_k_no_interpolation=0):
+    """
+    Detects keyframes in a video and saves them to the specified directory. Optionally, segments with high motion can be saved as interim videos as is without interpolatoin
+    Args:
+        source (str): Path to the source video file.
+        dest (str): Destination directory for saving keyframes.
+        bucket_size_in_frames (int): Size of the frame bucket for initial keyframe detection.
+        threshold (float, optional): Threshold for frame difference magnitude to consider a frame as keyframe. Default is 0.3.
+        output_dir (str, optional): Directory to save the keyframes. If None, keyframes will be saved in a subdirectory of `dest`. Default is None.
+        minimum_frames_between (int, optional): Minimum number of frames between consecutive keyframes. Default is 24.
+        maximum_frames_between (int, optional): Maximum number of frames between consecutive keyframes. Default is 30.
+        segment_fps (int, optional): Frames per second for the interim videos. Default is 30.
+        interim_videos_dir (str, optional): Directory to save interim videos with high motion. If None, interim videos will not be saved. Default is None.
+        top_k_no_interpolation (int, optional): Number of top motion segments to save without interpolation. Default is 0.
+    Returns:
+        list: List of keyframe images.
+    
+    """
+    keyframePath = output_dir 
 
-    selected_indices = keyframeDetectionByChunks(source, dest, bucket_size_in_frames, 0, output_dir, minimum_frames_between)
+    selected_indices = keyframeDetectionByChunks(source, bucket_size_in_frames, 0, output_dir, minimum_frames_between)
     
     cap = cv2.VideoCapture(source)
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -208,18 +225,17 @@ def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, o
     
     filtered_indices = sorted(set(filtered_indices + [length -1 ]))
     
-    os.makedirs(interim_videos_dir, exist_ok=True)
+    if interim_videos_dir:
+        os.makedirs(interim_videos_dir, exist_ok=True)
     motion_percentages = [0] * (len(filtered_indices) - 1)
     for idx in range(len(filtered_indices)):
         # see if the net motion between filtered_indices[idx] and filtered_indices[idx+1] is more than a threshold
         if filtered_indices[idx] == filtered_indices[-1]:
             break
         percentage_of_motion_in_bucket = sum(lstdiffMag[filtered_indices[idx]:filtered_indices[idx+1]]) / sum(lstdiffMag)
-        print(f"Percentage of motion in bucket_{idx} is ", percentage_of_motion_in_bucket)
+        # print(f"Percentage of motion in bucket_{idx} is ", percentage_of_motion_in_bucket)
         motion_percentages[idx] = (percentage_of_motion_in_bucket, idx)
     not_interpolated_indices = []
-    
-    
     
     def save_all_frames_in_bucket(index: int):
         # Save the entire bucket as a segment_<bucket_idx> mp4
@@ -228,30 +244,20 @@ def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, o
         
         all_bucket_frames = [full_color[i] for i in range(filtered_indices[index], filtered_indices[index+1])]
         resize_specs = (1024, 576)
-        # print(f"Bucket frames are {}")
-        
         
         for i in range(len(all_bucket_frames)):
-            # display.display(PIL.Image.fromarray(item))
             all_bucket_frames[i] = cv2.resize(all_bucket_frames[i], resize_specs)
-        # interim_videos_dir ~ os.path.join(OUT_DIR, f"interm_videos_{video_name}")
         segment_path = os.path.join(interim_videos_dir, f"segment_{index}.mp4")
-        # export_to_video(all_bucket_frames, segment_path, fps=segment_fps)
         frame_height, frame_width = all_bucket_frames[0].shape[:2]
-        
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
-
         video_writer = cv2.VideoWriter(
         segment_path, fourcc, segment_fps, (frame_width, frame_height))
         for image in all_bucket_frames:
             video_writer.write(image)
 
-
-# Release the video writer
         video_writer.release()
-        
         not_interpolated_indices.append(filtered_indices[index])
-    
+
     #sort the motion percentages and call the fn on top_k
     motion_percentages.sort(key = lambda x: x[0], reverse=True)
     for i in range(top_k_no_interpolation):
@@ -262,11 +268,9 @@ def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, o
     #   Save keyframe to output_dir
     keyframes = []
     for idx in filtered_indices:
-        # output_path = os.path.join(keyframePath, f"frame{lstfrm[idx]:04d}.jpg")
         output_path = os.path.join(keyframePath, f"frame{lstfrm[idx]}_{timeSpans[idx]:.4f}.jpg")
         if idx in not_interpolated_indices:
             output_path = os.path.join(keyframePath, f"frame<s>{lstfrm[idx]}_{timeSpans[idx]:.4f}.jpg")
-        # output_path = os.path.join(keyframePath, f"bucket{bucket_idx}_frame{frame_number}_{timestamp:.2f}.jpg")
         cv2.imwrite(output_path, full_color[idx])
         keyframes.append(full_color[idx])
         log_message = f"keyframe at {timestamp:.2f} sec (frame {lstfrm[idx]})."
@@ -280,7 +284,7 @@ def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, o
     return keyframes
     
     
-def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=0, output_dir=None, minimum_frames_between = 24):
+def keyframeDetectionByChunks(source, number_frames_per_bucket, threshold=0, output_dir=None, minimum_frames_between = 24):
     
     """
     Detects keyframes in a video by processing it in chunks.
@@ -297,19 +301,12 @@ def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=
         list: List of selected keyframe indices.
     """
 
-    # Prepare output directories
-    clear_directory(dest)
-    keyframePath = output_dir if output_dir else os.path.join(dest, "keyFrames")
-    imageGridsPath = os.path.join(dest, "imageGrids")
-    csvPath = os.path.join(dest, "csvFile")
-    prepare_dirs(keyframePath, imageGridsPath, csvPath)
+    keyframePath = output_dir 
+    prepare_dirs(keyframePath)
 
-    # Open video file
     cap = cv2.VideoCapture(source)
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    # print('Video length (frames):', length)
-    # print('FPS:', fps)
 
     if not cap.isOpened():
         print("Error opening video file")
@@ -350,22 +347,12 @@ def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=
     buckets = [lstfrm[i : i + number_frames_per_bucket] for i in range(0, len(lstfrm), number_frames_per_bucket)]
     all_selected_indices = []
     
-    ## print each bucket
-    # for idx, bucket in enumerate(buckets):
-        # print(f"Bucket {idx} has frames {lenbucket}")
-    
-
     # Process each bucket
     for bucket_idx, bucket in enumerate(buckets):
-        # start_idx = bucket[0]  # First frame of the bucket
-        # print(f"Processing bucket {bucket_idx}")
         last_of_prev_bucket = sorted(buckets[bucket_idx-1])[-1] if bucket_idx > 0 else 0
         start_idx = last_of_prev_bucket if bucket_idx > 0 else bucket[0]
         end_idx = bucket[-1]  # Last frame of the bucket
         
-        # print(f"First frame of the bucket is {start_idx} and last frame is {end_idx}")
-        # print(f"Bucket contents are {bucket}")
-
         # Compute differences for the bucket
         bucket_diffMag = lstdiffMag[start_idx : end_idx + 1]
         bucket_frames = lstfrm[start_idx : end_idx + 1]
@@ -376,35 +363,14 @@ def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=
         y = np.array(bucket_diffMag)
         base = peakutils.baseline(y, 2)
         
-        # print(f"Minimumm frames between {minimum_frames_between}")
         indices = peakutils.indexes(y - base, threshold, min_dist = minimum_frames_between)
         selected_indices = sorted(indices, key=lambda idx: y[idx], reverse=True)
-        # selected_indices = [idx + number_frames_per_bucket for idx in selected_indices]
-
         
-        # print(f"Selected frames by peak utils are {selected_indices}")
-    
-        # if len(indices) > top_k:
-        #     selected_indices = sorted(set(indices[:top_k]))
-        # else:
-        #     selected_indices = sorted(set(indices))
-
-        # # Save keyframes and log
         for idx in selected_indices:
             frame_number = bucket_frames[idx]
             timestamp = bucket_timeSpans[idx]
             all_selected_indices + [frame_number]
         
-        #     output_path = os.path.join(keyframePath, f"frame{frame_number:04d}.jpg")
-        #     # output_path = os.path.join(keyframePath, f"bucket{bucket_idx}_frame{frame_number}_{timestamp:.2f}.jpg")
-        #     cv2.imwrite(output_path, bucket_images[idx])
-        #     log_message = f"Bucket {bucket_idx}, keyframe at {timestamp:.2f} sec (frame {frame_number})."
-        #     with open(f"logs/keyframe_detection_{os.path.basename(source)}.log", "w+") as log_file:
-        #         log_file.write(log_message + "\n")
-                
-        #     if verbose:
-        #         print(log_message)
-        # print(f"All selected indices are {all_selected_indices}")
 
     cv2.destroyAllWindows()
 

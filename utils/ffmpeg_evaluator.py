@@ -49,18 +49,40 @@ class FFmpegEvaluator:
         process = subprocess.run(command, capture_output=True, text=True)
 
         # if process.stdout:
-        # print("FFmpeg Output:")
-        # print(process.stdout)
-        # if process.stderr:
-        #     print("FFmpeg Errors:")
-        #     print(process.stderr)
+        #     print("FFmpeg Output:")
+        #     print(process.stdout)
+        #     if process.stderr:
+        #         print("FFmpeg Errors:")
+        #         print(process.stderr)
         # print(f"Generated video at {output_path}")
 
     def evaluate_smaller_video(self, video_path, output_path, frames_path):
         """Evaluate the process of generating a smaller video with reduced frames."""
         duration, fps = self.get_video_info(video_path)
         original_size = os.path.getsize(video_path)
-        frame_dir = frames_path
+        
+        interim_frames_path = f"{frames_path}/interim_frames"
+        
+        # print(f"interim frames path is {interim_frames_path}")
+        os.makedirs(interim_frames_path, exist_ok=True)
+        
+        # the reason for doing this is that ffmpeg requires frames to be of the format frame0001.jpg, frame0002.jpg, etc while we are also saving the  timestamps in the filename to be able to interpolate correctly and stitch correctly
+        
+        for filename in os.listdir(frames_path):
+            file_path = os.path.join(frames_path, filename)
+            if os.path.isfile(file_path):  
+               
+                new_name_parts = filename.split("_")
+                number_part = new_name_parts[0][5:]
+                new_name = "frame" + number_part.zfill(4) + ".jpg" 
+                new_file_path = os.path.join(interim_frames_path, new_name)
+                
+                # print(f"New path is {new_file_path}")
+ 
+                shutil.copy(file_path, new_file_path)
+        
+        
+        frame_dir = interim_frames_path
         video_name = os.path.splitext(os.path.basename(video_path))[0]
 
         frames_size = sum(
@@ -110,6 +132,9 @@ class FFmpegEvaluator:
         with open(table_output_path, "w") as file:
             file.write(
                 tabulate(table_data, headers="firstrow", tablefmt="grid"))
+            
+        shutil.rmtree(interim_frames_path)
+        
 
         # print(f"\nSummary written to: {table_output_path}")
 

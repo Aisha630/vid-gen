@@ -45,12 +45,12 @@ def convert_frame_to_grayscale(frame):
     return grayframe, gray
 
 
-def prepare_dirs(keyframePath, imageGridsPath, csvPath):
+def prepare_dirs(keyframePath, imageGridsPath=None, csvPath=None):
     if not os.path.exists(keyframePath):
         os.makedirs(keyframePath)
-    if not os.path.exists(imageGridsPath):
+    if imageGridsPath and not os.path.exists(imageGridsPath):
         os.makedirs(imageGridsPath)
-    if not os.path.exists(csvPath):
+    if csvPath and not os.path.exists(csvPath):
         os.makedirs(csvPath)
 
 

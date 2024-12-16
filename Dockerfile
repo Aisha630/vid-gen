@@ -13,6 +13,7 @@ COPY . /VideoReconstruction
 # Create the Conda environment from the environment.yml file
 RUN conda env create -f environment.yml
 RUN apt-get update && apt-get install -y libgl1-mesa-glx
+RUN apt update && apt install -y ffmpeg
 RUN conda env create -f visil_env.yml
 
 # Start in interactive mode
