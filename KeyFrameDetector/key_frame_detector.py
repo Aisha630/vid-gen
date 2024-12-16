@@ -7,6 +7,8 @@ import time
 import peakutils
 from diffusers.utils import export_to_video
 from KeyFrameDetector.utils import convert_frame_to_grayscale, prepare_dirs, plot_metrics
+import PIL 
+import IPython.display as display
 
 __all__ = ["keyframeDetection", "clear_directory" "keyframeDetectionByChunks", "smartKeyframeDetection"]
 
@@ -144,7 +146,7 @@ def find_next_best_frame(start_index, last_index, bucket_diffMag, minimum_frames
     return indices_to_insert
 
     
-def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, output_dir=None,  minimum_frames_between = 24, maximum_frames_between=30, segment_fps=30, interim_videos_dir=None):
+def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, output_dir=None,minimum_frames_between = 24, maximum_frames_between=30, segment_fps=30, interim_videos_dir=None, top_k_no_interpolation=0):
     keyframePath = output_dir if output_dir else os.path.join(dest, "keyFrames")
 
     selected_indices = keyframeDetectionByChunks(source, dest, bucket_size_in_frames, 0, output_dir, minimum_frames_between)
@@ -206,21 +208,54 @@ def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, o
     
     filtered_indices = sorted(set(filtered_indices + [length -1 ]))
     
-    for idx in filtered_indices:
+    os.makedirs(interim_videos_dir, exist_ok=True)
+    motion_percentages = [0] * (len(filtered_indices) - 1)
+    for idx in range(len(filtered_indices)):
         # see if the net motion between filtered_indices[idx] and filtered_indices[idx+1] is more than a threshold
-        if idx == filtered_indices[-1]:
+        if filtered_indices[idx] == filtered_indices[-1]:
             break
-        no_interpolation_threshold = 0.3
         percentage_of_motion_in_bucket = sum(lstdiffMag[filtered_indices[idx]:filtered_indices[idx+1]]) / sum(lstdiffMag)
-        if percentage_of_motion_in_bucket > no_interpolation_threshold:
-            # Save the entire bucket as a segment_<bucket_idx> mp4
-            print(f"Frames {filtered_indices[idx]} to {filtered_indices[idx+1]} have high motion, saving the entire bucket.")
-            all_bucket_frames = [full_color[idx] for idx in range(filtered_indices[idx], filtered_indices[idx+1])]
-            # interim_videos_dir ~ os.path.join(OUT_DIR, f"interm_videos_{video_name}")
-            interim_videos_dir = os.path.join(interim_videos_dir, f"segment_{idx}.mp4")
-            export_to_video(all_bucket_frames, interim_videos_dir, fps=segment_fps)
-            continue
+        print(f"Percentage of motion in bucket_{idx} is ", percentage_of_motion_in_bucket)
+        motion_percentages[idx] = (percentage_of_motion_in_bucket, idx)
+    not_interpolated_indices = []
+    
+    
+    
+    def save_all_frames_in_bucket(index: int):
+        # Save the entire bucket as a segment_<bucket_idx> mp4
+        print(f"Frames {filtered_indices[index]} to {filtered_indices[index+1]} have high motion, saving the entire bucke at {interim_videos_dir}")
+        
+        
+        all_bucket_frames = [full_color[i] for i in range(filtered_indices[index], filtered_indices[index+1])]
+        resize_specs = (1024, 576)
+        # print(f"Bucket frames are {}")
+        
+        
+        for i in range(len(all_bucket_frames)):
+            # display.display(PIL.Image.fromarray(item))
+            all_bucket_frames[i] = cv2.resize(all_bucket_frames[i], resize_specs)
+        # interim_videos_dir ~ os.path.join(OUT_DIR, f"interm_videos_{video_name}")
+        segment_path = os.path.join(interim_videos_dir, f"segment_{index}.mp4")
+        # export_to_video(all_bucket_frames, segment_path, fps=segment_fps)
+        frame_height, frame_width = all_bucket_frames[0].shape[:2]
+        
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
 
+        video_writer = cv2.VideoWriter(
+        segment_path, fourcc, segment_fps, (frame_width, frame_height))
+        for image in all_bucket_frames:
+            video_writer.write(image)
+
+
+# Release the video writer
+        video_writer.release()
+        
+        not_interpolated_indices.append(filtered_indices[index])
+    
+    #sort the motion percentages and call the fn on top_k
+    motion_percentages.sort(key = lambda x: x[0], reverse=True)
+    for i in range(top_k_no_interpolation):
+        save_all_frames_in_bucket(motion_percentages[i][1])
 
     print(f"For {source}, selected {len(selected_indices)} frames, and inserted {len(filtered_indices) - len(selected_indices)} frames.")
     
@@ -229,6 +264,8 @@ def smartKeyframeDetection(source, dest, bucket_size_in_frames, threshold=0.3, o
     for idx in filtered_indices:
         # output_path = os.path.join(keyframePath, f"frame{lstfrm[idx]:04d}.jpg")
         output_path = os.path.join(keyframePath, f"frame{lstfrm[idx]}_{timeSpans[idx]:.4f}.jpg")
+        if idx in not_interpolated_indices:
+            output_path = os.path.join(keyframePath, f"frame<s>{lstfrm[idx]}_{timeSpans[idx]:.4f}.jpg")
         # output_path = os.path.join(keyframePath, f"bucket{bucket_idx}_frame{frame_number}_{timestamp:.2f}.jpg")
         cv2.imwrite(output_path, full_color[idx])
         keyframes.append(full_color[idx])
@@ -336,7 +373,6 @@ def keyframeDetectionByChunks(source, dest, number_frames_per_bucket, threshold=
         bucket_images = full_color[start_idx : end_idx + 1]
 
         # Select top-k or threshold-based frames
-        print(f"Net difference in bucket {bucket_idx} is ", sum(bucket_diffMag))
         y = np.array(bucket_diffMag)
         base = peakutils.baseline(y, 2)
         
