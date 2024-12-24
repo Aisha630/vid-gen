@@ -8,7 +8,6 @@ custom_diffusers/schedulers/__pycache__/
 checkpoints/
 dataset/
 eval/
-examples/
 LICENSE
 our_results*/
 inputs/
@@ -30,3 +29,17 @@ outputs/
 logs/
 input_videos/*
 input*/
+alloriginalvids.zip
+cleaned_data*
+cliffwater*
+compressop
+compressed_videos/
+alloriginalvids/
+nightsky*/
+original_vids/
+clean.py
+graphy.py
+input_videos.zip
+nightsky.mp4
+.vscode/
+compression_details.csv
