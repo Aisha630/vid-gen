@@ -4,6 +4,8 @@ This repository is dedicated to VIDER (Video Reconstruction for Web Affordabilit
 
 VIDER addresses this challenge by leveraging keyframe-based video reconstruction powered by generative AI. By transmitting only essential keyframes and metadata instead of full video streams, this method reconstructs high-quality videos locally on edge devices using Stable Diffusion-based interpolation models. This approach achieves remarkable bandwidth savings—up to 97.7%—while maintaining perceptual quality and temporal consistency. VIDER is positioned as a transformative solution for scalable and cost-efficient video delivery in modern content distribution networks.
 
+[GitHub Pages Link](https://aisha630.github.io/vid-gen/
+
 ---
 
 # Set up
