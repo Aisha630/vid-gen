@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-def generate_gifs(input_dir, output_dir, fps=20, resolution=(1280, -1)):
+def generate_gifs(input_dir, output_dir, fps=20, resolution=(320, -1)):
     """
     Converts all videos in the input directory to GIFs with optimized palettes
     and saves them in the output directory.
@@ -53,13 +53,14 @@ def generate_gifs(input_dir, output_dir, fps=20, resolution=(1280, -1)):
             print(f"GIF created at: {gif_path}")
         except subprocess.CalledProcessError as e:
             print(f"Error generating GIF for {video_path}: {e.stderr.decode()}")
+        os.remove(palette_path)
 
     print("All videos processed and GIFs created!")
 
 if __name__ == "__main__":
     # Define the input and output directories
-    input_dir = "./examples/original"  # Change to your input directory
-    output_dir = "./examples/original_gifs"  # Change to your desired output directory
+    input_dir = "./examples/generated"  # Change to your input directory
+    output_dir = "./examples/generated_gifs"  # Change to your desired output directory
 
     # Call the generate_gifs function
     generate_gifs(input_dir, output_dir)
