@@ -70,3 +70,64 @@ The `examples` folder contains:
 
 - **Original Videos**: Unprocessed videos used as the base for generation.
 - **Generated Videos**: Outputs from our video generation model.
+
+<div style="display: flex; gap: 10px;">
+  <div>
+    <p><strong>Original Video</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/original_gifs/clouds.gif" alt="Original Video" width="320">
+  </div>
+  <div>
+    <p><strong>Generated GIF</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/generated_gifs/clouds_interpolated.gif" alt="Generated GIF" width="320">
+  </div>
+</div>
+<div style="display: flex; gap: 10px;">
+  <div>
+    <p><strong>Original Video</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/original_gifs/motorway.gif" alt="Original Video" width="320">
+  </div>
+  <div>
+    <p><strong>Generated GIF</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/generated_gifs/motorway_interpolated.gif" alt="Generated GIF" width="320">
+  </div>
+</div>
+<div style="display: flex; gap: 10px;">
+  <div>
+    <p><strong>Original Video</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/original_gifs/waterfall.gif" alt="Original Video" width="320">
+  </div>
+  <div>
+    <p><strong>Generated GIF</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/generated_gifs/waterfall_interpolated.gif" alt="Generated GIF" width="320">
+  </div>
+</div>
+<div style="display: flex; gap: 10px;">
+  <div>
+    <p><strong>Original Video</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/original_gifs/waterwavestrim.gif" alt="Original Video" width="320">
+  </div>
+  <div>
+    <p><strong>Generated GIF</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/generated_gifs/waterwavestrim_interpolated.gif" alt="Generated GIF" width="320">
+  </div>
+</div>
+<div style="display: flex; gap: 10px;">
+  <div>
+    <p><strong>Original Video</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/original_gifs/cliffwater.gif" alt="Original Video" width="320">
+  </div>
+  <div>
+    <p><strong>Generated GIF</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/generated_gifs/cliffwater_interpolated.gif" alt="Generated GIF" width="320">
+  </div>
+</div>
+<div style="display: flex; gap: 10px;">
+  <div>
+    <p><strong>Original Video</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/original_gifs/wavescrash.gif" alt="Original Video" width="320">
+  </div>
+  <div>
+    <p><strong>Generated GIF</strong></p>
+    <img src="https://aisha630.github.io/vid-gen/generated_gifs/wavescrash_interpolated.gif" alt="Generated GIF" width="320">
+  </div>
+</div>
